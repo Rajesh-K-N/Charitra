@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const { randomBytes } = require('node:crypto');
 const { after, before, test } = require('node:test');
+const mongoose = require('mongoose');
 
 process.env.NODE_ENV = 'production';
 process.env.MONGO_URI = 'mongodb://127.0.0.1:27017/charitra-test';
@@ -10,6 +11,12 @@ process.env.COOKIE_SAME_SITE = 'lax';
 process.env.VERCEL_URL = 'charitra-preview.vercel.app';
 process.env.VERCEL_BRANCH_URL = 'charitra-git-main.vercel.app';
 process.env.VERCEL_PROJECT_PRODUCTION_URL = 'charitra.example.com';
+
+let databaseConnectCalls = 0;
+mongoose.connect = async () => {
+    databaseConnectCalls += 1;
+    return mongoose;
+};
 
 const app = require('../index');
 let server;
@@ -35,6 +42,12 @@ test('API responds with security headers and hides Express details', async () =>
     assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
     assert.equal(response.headers.get('x-frame-options'), 'SAMEORIGIN');
     assert.ok(response.headers.get('strict-transport-security'));
+});
+
+test('API requests initialize MongoDB when the app is imported as a serverless function', async () => {
+    const response = await fetch(`${baseUrl}/api/not-a-route`);
+    assert.equal(response.status, 404);
+    assert.equal(databaseConnectCalls, 1);
 });
 
 test('CORS allows only the configured frontend origin', async () => {

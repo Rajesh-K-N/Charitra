@@ -37,6 +37,10 @@ const vercelOrigins = [
     .filter(Boolean)
     .map((domain) => deploymentOrigin(domain));
 const allowedOrigins = [...new Set([...configuredOrigins, ...vercelOrigins])];
+let databaseConnectionPromise;
+mongoose.connection.on('disconnected', () => {
+    databaseConnectionPromise = null;
+});
 
 if (!process.env.MONGO_URI) {
     throw new Error('MONGO_URI must be configured in server/.env');
@@ -92,6 +96,34 @@ app.use(rateLimit({
     message: { message: 'Too many requests. Please try again later.' }
 }));
 
+async function ensureDatabaseConnected() {
+    if (mongoose.connection.readyState === 1) {
+        return;
+    }
+
+    if (!databaseConnectionPromise) {
+        databaseConnectionPromise = mongoose.connect(process.env.MONGO_URI)
+            .then(() => {
+                console.log('MongoDB Connected');
+            })
+            .catch((error) => {
+                databaseConnectionPromise = null;
+                throw error;
+            });
+    }
+
+    await databaseConnectionPromise;
+}
+
+app.use('/api', async (req, res, next) => {
+    try {
+        await ensureDatabaseConnected();
+        return next();
+    } catch (error) {
+        return next(error);
+    }
+});
+
 const authenticationRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 10,
@@ -136,8 +168,7 @@ app.use((err, req, res, next) => {
 });
 
 async function start() {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('MongoDB Connected');
+    await ensureDatabaseConnected();
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
     });
