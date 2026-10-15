@@ -7,6 +7,9 @@ process.env.MONGO_URI = 'mongodb://127.0.0.1:27017/charitra-test';
 process.env.JWT_SECRET = randomBytes(32).toString('hex');
 process.env.CLIENT_ORIGIN = 'http://localhost:5173';
 process.env.COOKIE_SAME_SITE = 'lax';
+process.env.VERCEL_URL = 'charitra-preview.vercel.app';
+process.env.VERCEL_BRANCH_URL = 'charitra-git-main.vercel.app';
+process.env.VERCEL_PROJECT_PRODUCTION_URL = 'charitra.example.com';
 
 const app = require('../index');
 let server;
@@ -36,9 +39,13 @@ test('API responds with security headers and hides Express details', async () =>
 
 test('CORS allows only the configured frontend origin', async () => {
     const allowed = await fetch(`${baseUrl}/`, { headers: { Origin: 'http://localhost:5173' } });
+    const vercelPreview = await fetch(`${baseUrl}/`, { headers: { Origin: 'https://charitra-preview.vercel.app' } });
+    const vercelProduction = await fetch(`${baseUrl}/`, { headers: { Origin: 'https://charitra.example.com' } });
     const denied = await fetch(`${baseUrl}/`, { headers: { Origin: 'https://untrusted.example' } });
     assert.equal(allowed.headers.get('access-control-allow-origin'), 'http://localhost:5173');
     assert.equal(allowed.headers.get('access-control-allow-credentials'), 'true');
+    assert.equal(vercelPreview.headers.get('access-control-allow-origin'), 'https://charitra-preview.vercel.app');
+    assert.equal(vercelProduction.headers.get('access-control-allow-origin'), 'https://charitra.example.com');
     assert.equal(denied.headers.get('access-control-allow-origin'), null);
 });
 
@@ -109,6 +116,14 @@ test('state-changing requests reject an untrusted origin', async () => {
     });
     assert.equal(response.status, 403);
     assert.deepEqual(await response.json(), { message: 'Request origin is not allowed.' });
+});
+
+test('state-changing requests accept the current Vercel deployment origin', async () => {
+    const response = await fetch(`${baseUrl}/api/auth/logout`, {
+        method: 'POST',
+        headers: { Origin: 'https://charitra-preview.vercel.app' }
+    });
+    assert.equal(response.status, 204);
 });
 
 test('production rejects state-changing requests without an Origin', async () => {

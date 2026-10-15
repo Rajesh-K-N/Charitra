@@ -13,10 +13,30 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 const cookieSameSite = (process.env.COOKIE_SAME_SITE || 'lax').toLowerCase();
-const allowedOrigins = (process.env.CLIENT_ORIGIN || (isProduction ? '' : 'http://localhost:5173'))
+const deploymentOrigin = (domain) => {
+    if (!domain) {
+        return null;
+    }
+
+    const url = new URL(domain.includes('://') ? domain : `https://${domain}`);
+    if (!['https:', 'http:'].includes(url.protocol) || url.pathname !== '/' || url.search || url.hash) {
+        throw new Error('Vercel deployment origin must be a valid host without a path');
+    }
+    return url.origin;
+};
+const configuredOrigins = (process.env.CLIENT_ORIGIN || (isProduction ? '' : 'http://localhost:5173'))
     .split(',')
     .map((origin) => origin.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((origin) => deploymentOrigin(origin));
+const vercelOrigins = [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+]
+    .filter(Boolean)
+    .map((domain) => deploymentOrigin(domain));
+const allowedOrigins = [...new Set([...configuredOrigins, ...vercelOrigins])];
 
 if (!process.env.MONGO_URI) {
     throw new Error('MONGO_URI must be configured in server/.env');
