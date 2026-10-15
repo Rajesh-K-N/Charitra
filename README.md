@@ -77,13 +77,4 @@
 - Scalability: Static JSON for content; could move to DB for dynamic updates.
 - UI/UX: Relies on Tailwind; could add animations or dark mode.
 
-#### **Environment and deployment**
-- Copy `server/.env.example` to `server/.env`, then provide a MongoDB URI and a randomly generated JWT secret of at least 32 characters. Never commit `.env` files.
-- Copy `client/.env.example` to `client/.env.local`; replace the example site URL with the real public origin before deployment. Analytics and Search Console are not enabled until their IDs are supplied.
-- In production, set `NODE_ENV=production` and `CLIENT_ORIGIN` to the exact frontend origin. The API uses a one-hour HttpOnly session cookie and rejects state-changing requests without an allowed Origin. Keep `COOKIE_SAME_SITE=lax` for same-site frontend/API hosts; use `none` only for cross-site hosts, which requires HTTPS. Terminate TLS at the hosting provider or reverse proxy and enable its HTTP-to-HTTPS redirect and automatic certificate renewal; HSTS is enabled by the API in production.
-- The frontend is a separate static Vite app, so configure equivalent browser-facing security headers and SPA history fallback at its hosting provider. The CSP must allow the configured API origin and the Google Fonts origins used by the interface.
-- User authentication data includes account name/email, a password hash, and reading progress. Complete the privacy/terms drafts with the actual operator contact, hosting providers, retention and deletion practices before launch.
-- Before launch: enable 2FA for the hosting provider, domain registrar, and GitHub; configure automatic database backups and test restores; verify SSL auto-renewal.
-- A previously tracked environment file has been removed from the working tree. Its credentials remain in Git history and must be rotated; rewriting shared history requires a coordinated cleanup.
-
 This app blends technology with spirituality, making ancient texts accessible and engaging through modern web development practices. It's ideal for users seeking daily inspiration from Hindu epics. If you'd like details on specific files, code snippets, or how to run it, let me know!
