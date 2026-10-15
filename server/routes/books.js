@@ -1,151 +1,130 @@
 const router = require('express').Router();
 const User = require('../models/User');
-const jwt = require('jsonwebtoken');
-
-// Middleware to verify token
-const verify = (req, res, next) => {
-    const token = req.header('auth-token');
-    if (!token) return res.status(401).send('Access Denied');
-
-    try {
-        const verified = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = verified;
-        next();
-    } catch (err) {
-        res.status(400).send('Invalid Token');
-    }
-};
-
+const verify = require('../middleware/requireAuth');
 const scriptures = require('../data/scriptures.json');
 
-// Get Content
+const parsePage = (value) => {
+    if (!/^[1-9]\d{0,3}$/.test(value)) {
+        return null;
+    }
+    return Number(value);
+};
+
 router.get('/content/:bookId/:page', (req, res) => {
-    const { bookId, page } = req.params;
+    const { bookId } = req.params;
+    const page = parsePage(req.params.page);
 
-    if (scriptures[bookId] && scriptures[bookId][page]) {
-        const content = scriptures[bookId][page];
-        res.json({ content, page: parseInt(page), bookId });
-    } else {
-        res.json({ content: "You have reached the end of this scripture for now. Check back later for more verses!", page: parseInt(page), bookId });
+    if (!Object.hasOwn(scriptures, bookId) || page === null) {
+        return res.status(404).json({ message: 'Scripture page not found.' });
     }
+
+    const content = scriptures[bookId][page];
+    return res.json({
+        content: content || 'You have reached the end of this scripture for now. Check back later for more verses!',
+        page,
+        bookId
+    });
 });
 
-// Update Progress
 router.post('/progress', verify, async (req, res) => {
-    try {
-        const { bookId, page } = req.body;
-        const userId = req.user._id;
+    const { bookId, page } = req.body || {};
+    const validBook = typeof bookId === 'string' && Object.hasOwn(scriptures, bookId);
 
-        const user = await User.findById(userId);
-
-        // Update progress
-        if (!user.progress) {
-            user.progress = new Map();
-        }
-        user.progress.set(bookId, page);
-
-        // Daily Goal & Streak Logic
-        const today = new Date();
-        const lastRead = user.lastReadDate ? new Date(user.lastReadDate) : null;
-
-        // Check if it's a new day
-        const isNewDay = !lastRead ||
-            lastRead.getDate() !== today.getDate() ||
-            lastRead.getMonth() !== today.getMonth() ||
-            lastRead.getFullYear() !== today.getFullYear();
-
-        if (isNewDay) {
-            user.dailyReads = 0; // Reset for new day
-
-            // Streak Logic
-            if (lastRead) {
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-
-                const isYesterday =
-                    lastRead.getDate() === yesterday.getDate() &&
-                    lastRead.getMonth() === yesterday.getMonth() &&
-                    lastRead.getFullYear() === yesterday.getFullYear();
-
-                if (isYesterday) {
-                    user.streaks += 1;
-                } else {
-                    user.streaks = 1;
-                }
-            } else {
-                user.streaks = 1;
-            }
-        }
-
-        user.dailyReads += 1;
-        user.points += 10;
-        user.lastReadDate = today;
-
-        await user.save();
-
-        res.json({
-            message: 'Progress updated',
-            points: user.points,
-            dailyReads: user.dailyReads,
-            streaks: user.streaks,
-            progress: Object.fromEntries(user.progress)
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    if (!validBook || !Number.isSafeInteger(page) || page < 1 ||
+        !Object.hasOwn(scriptures[bookId], String(page))) {
+        return res.status(400).json({ message: 'Provide a valid scripture page.' });
     }
-});
 
-// Get User Progress
-router.get('/my-progress', verify, async (req, res) => {
-    try {
-        const user = await User.findById(req.user._id);
-        res.json({
-            points: user.points,
-            streaks: user.streaks,
-            dailyReads: user.dailyReads || 0,
-            progress: user.progress ? Object.fromEntries(user.progress) : {}
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
     }
-});
 
-// Reset Progress
-router.post('/reset-progress', verify, async (req, res) => {
-    try {
-        const user = await User.findById(req.user._id);
+    if (!user.progress) {
+        user.progress = new Map();
+    }
 
-        user.points = 0;
-        user.streaks = 0;
+    if (page <= (user.progress.get(bookId) || 0)) {
+        return res.status(409).json({ message: 'This page has already been completed.' });
+    }
+
+    user.progress.set(bookId, page);
+
+    const today = new Date();
+    const lastRead = user.lastReadDate ? new Date(user.lastReadDate) : null;
+    const isNewDay = !lastRead ||
+        lastRead.getDate() !== today.getDate() ||
+        lastRead.getMonth() !== today.getMonth() ||
+        lastRead.getFullYear() !== today.getFullYear();
+
+    if (isNewDay) {
         user.dailyReads = 0;
-        // We keep reading progress (bookmarks) as per plan
-
-        await user.save();
-
-        res.json({
-            message: 'Karma reset successfully',
-            points: user.points,
-            streaks: user.streaks,
-            dailyReads: user.dailyReads,
-            progress: user.progress ? Object.fromEntries(user.progress) : {}
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+        if (!lastRead) {
+            user.streaks = 1;
+        } else {
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const readYesterday = lastRead.getDate() === yesterday.getDate() &&
+                lastRead.getMonth() === yesterday.getMonth() &&
+                lastRead.getFullYear() === yesterday.getFullYear();
+            user.streaks = readYesterday ? user.streaks + 1 : 1;
+        }
     }
+
+    user.dailyReads += 1;
+    user.points += 10;
+    user.lastReadDate = today;
+    await user.save();
+
+    return res.json({
+        message: 'Progress updated',
+        points: user.points,
+        dailyReads: user.dailyReads,
+        streaks: user.streaks,
+        progress: Object.fromEntries(user.progress)
+    });
 });
 
-// Get Leaderboard
-router.get('/leaderboard', verify, async (req, res) => {
-    try {
-        const users = await User.find()
-            .sort({ points: -1 })
-            .limit(10)
-            .select('name points streaks'); // Select only necessary fields
-
-        res.json(users);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+router.get('/my-progress', verify, async (req, res) => {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
     }
+
+    return res.json({
+        points: user.points,
+        streaks: user.streaks,
+        dailyReads: user.dailyReads || 0,
+        progress: user.progress ? Object.fromEntries(user.progress) : {}
+    });
+});
+
+router.post('/reset-progress', verify, async (req, res) => {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.points = 0;
+    user.streaks = 0;
+    user.dailyReads = 0;
+    await user.save();
+
+    return res.json({
+        message: 'Karma reset successfully',
+        points: user.points,
+        streaks: user.streaks,
+        dailyReads: user.dailyReads,
+        progress: user.progress ? Object.fromEntries(user.progress) : {}
+    });
+});
+
+router.get('/leaderboard', verify, async (req, res) => {
+    const users = await User.find()
+        .sort({ points: -1 })
+        .limit(10)
+        .select('name points streaks');
+    return res.json(users);
 });
 
 module.exports = router;

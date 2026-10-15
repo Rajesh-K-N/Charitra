@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
+import Seo from '../components/Seo';
+import Breadcrumbs from '../components/Breadcrumbs';
+import { apiFetch } from '../lib/api';
 
 const Leaderboard = () => {
     const [leaders, setLeaders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const { user } = useAuth();
 
     useEffect(() => {
         const fetchLeaderboard = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const res = await fetch('http://localhost:5000/api/books/leaderboard', {
-                    headers: { 'auth-token': token }
-                });
+                const res = await apiFetch('books/leaderboard');
                 const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.message || 'Unable to load leaderboard.');
+                }
                 setLeaders(data);
             } catch (err) {
-                console.error("Failed to fetch leaderboard", err);
+                setError(err.message || 'Unable to load leaderboard.');
             } finally {
                 setLoading(false);
             }
@@ -25,6 +29,9 @@ const Leaderboard = () => {
     }, []);
 
     return (
+        <>
+        <Seo title="Hall of Sages Leaderboard | Charitra" description="See the Charitra reading leaderboard and compare scripture reading points and daily streaks." noIndex />
+        <Breadcrumbs items={[{ label: 'Dashboard', to: '/dashboard' }, { label: 'Leaderboard' }]} />
         <div className="container mx-auto px-4 py-12 max-w-4xl">
             <div className="text-center mb-12">
                 <h1 className="text-4xl font-serif font-bold text-maroon-dark mb-4">Hall of Sages</h1>
@@ -49,6 +56,10 @@ const Leaderboard = () => {
                                         Summoning the records...
                                     </td>
                                 </tr>
+                            ) : error ? (
+                                <tr><td colSpan="4" role="alert" className="px-6 py-8 text-center text-red-700">{error}</td></tr>
+                            ) : leaders.length === 0 ? (
+                                <tr><td colSpan="4" className="px-6 py-8 text-center text-gray-500">No readers have appeared on the leaderboard yet.</td></tr>
                             ) : (
                                 leaders.map((leader, index) => (
                                     <tr
@@ -86,6 +97,7 @@ const Leaderboard = () => {
                 </div>
             </div>
         </div>
+        </>
     );
 };
 

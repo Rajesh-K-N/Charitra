@@ -1,34 +1,43 @@
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useState } from 'react';
+import { apiFetch } from '../lib/api';
 
 const Navbar = () => {
     const { user, logout, login } = useAuth();
     const [showResetModal, setShowResetModal] = useState(false);
     const [confirmText, setConfirmText] = useState('');
+    const [actionError, setActionError] = useState('');
 
     const handleReset = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/books/reset-progress', {
-                method: 'POST',
-                headers: { 'auth-token': token }
-            });
+            const res = await apiFetch('books/reset-progress', { method: 'POST' });
             const data = await res.json();
 
-            if (res.ok) {
-                const updatedUser = {
-                    ...user,
-                    points: data.points,
-                    streaks: data.streaks,
-                    dailyReads: data.dailyReads
-                };
-                login(token, updatedUser);
-                setShowResetModal(false);
-                setConfirmText('');
+            if (!res.ok) {
+                throw new Error(data.message || 'Unable to reset progress.');
             }
-        } catch (err) {
-            console.error("Failed to reset karma", err);
+            const updatedUser = {
+                ...user,
+                points: data.points,
+                streaks: data.streaks,
+                dailyReads: data.dailyReads
+            };
+            login(updatedUser);
+            setActionError('');
+            setShowResetModal(false);
+            setConfirmText('');
+        } catch (error) {
+            setActionError(error.message || 'Unable to reset progress.');
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            setActionError('');
+        } catch (error) {
+            setActionError(error.message || 'Unable to sign out.');
         }
     };
 
@@ -51,7 +60,7 @@ const Navbar = () => {
                             >
                                 Karma: {user.points}
                             </button>
-                            <button onClick={logout} className="bg-transparent border border-gold text-gold-light px-4 py-1.5 rounded-lg hover:bg-gold hover:text-maroon-dark transition font-serif font-bold">
+                            <button onClick={handleLogout} className="bg-transparent border border-gold text-gold-light px-4 py-1.5 rounded-lg hover:bg-gold hover:text-maroon-dark transition font-serif font-bold">
                                 Logout
                             </button>
                         </>
@@ -65,18 +74,21 @@ const Navbar = () => {
                     )}
                 </div>
             </div>
+            {actionError && <p role="alert" className="px-4 pb-2 text-center text-sm text-red-200">{actionError}</p>}
 
             {/* Reset Confirmation Modal */}
             {showResetModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div role="dialog" aria-modal="true" aria-labelledby="reset-dialog-title" className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full border-2 border-red-200 text-gray-800">
-                        <h3 className="text-2xl font-serif font-bold text-red-700 mb-4">Reset Karma?</h3>
+                        <h2 id="reset-dialog-title" className="text-2xl font-serif font-bold text-red-700 mb-4">Reset Karma?</h2>
                         <p className="text-gray-700 mb-6">
                             This will reset your **Points**, **Streaks**, and **Daily Goal** to zero. Your reading progress (bookmarks) will be saved.
                             <br /><br />
                             Type <span className="font-mono font-bold bg-gray-100 px-1 rounded">confirm</span> below to proceed.
                         </p>
+                        <label htmlFor="reset-confirm" className="sr-only">Type confirm to reset progress</label>
                         <input
+                            id="reset-confirm"
                             type="text"
                             className="w-full border border-gray-300 rounded-lg px-4 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-red-500"
                             placeholder="Type confirm"

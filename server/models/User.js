@@ -3,16 +3,22 @@ const mongoose = require('mongoose');
 const UserSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
+        maxlength: 80
     },
     email: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        lowercase: true,
+        trim: true,
+        maxlength: 254
     },
     password: {
         type: String,
-        required: true
+        required: true,
+        maxlength: 128
     },
     points: {
         type: Number,
@@ -36,6 +42,6 @@ const UserSchema = new mongoose.Schema({
         of: Number,
         default: {}
     }
-}, { timestamps: true });
+}, { timestamps: true, collection: 'gamified knowledge' });
 
 module.exports = mongoose.model('User', UserSchema);

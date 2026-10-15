@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { useEffect } from 'react';
+import Seo from '../components/Seo';
+import { apiFetch } from '../lib/api';
 
 const Dashboard = () => {
     const { user, login } = useAuth();
@@ -14,12 +16,7 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchProgress = async () => {
             try {
-                const token = localStorage.getItem('token');
-                if (!token) return;
-
-                const res = await fetch('http://localhost:5000/api/books/my-progress', {
-                    headers: { 'auth-token': token }
-                });
+                const res = await apiFetch('books/my-progress');
                 const data = await res.json();
 
                 if (res.ok && user) {
@@ -32,7 +29,7 @@ const Dashboard = () => {
                     // Only update if data changed to avoid loops (though login sets state, so it might rerender)
                     // Simple check or just update
                     if (JSON.stringify(updatedUser) !== JSON.stringify(user)) {
-                        login(token, updatedUser);
+                        login(updatedUser);
                     }
                 }
             } catch (err) {
@@ -40,9 +37,11 @@ const Dashboard = () => {
             }
         };
         fetchProgress();
-    }, []);
+    }, [login, user]);
 
     return (
+        <>
+        <Seo title="Your Reading Dashboard | Charitra" description="Continue your Bhagavad Gita and Ramayana reading, review daily streaks, and track your scripture progress." noIndex />
         <div className="container mx-auto px-4 py-12">
             <div className="text-center mb-12">
                 <h1 className="text-4xl md:text-5xl font-serif font-bold text-maroon-dark mb-4">Namaste, {user?.name}</h1>
@@ -106,6 +105,7 @@ const Dashboard = () => {
                 ))}
             </div>
         </div>
+        </>
     );
 };
 

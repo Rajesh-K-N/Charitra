@@ -1,8 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@300;400;700;900&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.js";
 
 body {
     @apply bg-parchment text-gray-900 font-sans;
@@ -16,4 +13,9 @@ h4,
 h5,
 h6 {
     @apply font-serif text-maroon-dark;
+}
+
+:focus-visible {
+    outline: 3px solid #a35a00;
+    outline-offset: 3px;
 }

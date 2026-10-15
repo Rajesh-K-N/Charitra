@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#4d0000"/>
+      <stop offset="1" stop-color="#800000"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="600" cy="258" r="110" fill="none" stroke="#e5c07b" stroke-width="5"/>
+  <path d="M600 154c-9 35-39 54-39 83a39 39 0 0 0 78 0c0-29-30-48-39-83Zm0 83a22 22 0 1 0 0 44 22 22 0 0 0 0-44Z" fill="#ff9933"/>
+  <text x="600" y="455" fill="#f5e6d3" font-family="Georgia,serif" font-size="74" font-weight="700" text-anchor="middle">Charitra</text>
+  <text x="600" y="515" fill="#e5c07b" font-family="Arial,sans-serif" font-size="30" text-anchor="middle">A scripture reading journey</text>
+</svg>
