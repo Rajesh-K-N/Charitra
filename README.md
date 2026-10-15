@@ -16,8 +16,8 @@
 #### **Key Features and Functionality**
 
 1. **User Authentication and Management**:
-   - **Signup/Login**: Users create accounts with name, email, and password. Passwords are securely hashed. JWT tokens are issued on login and stored in localStorage for session persistence.
-   - **Auth Context**: A React context (`AuthContext.jsx`) manages global user state, including login/logout. It auto-loads user data from localStorage on app start.
+   - **Signup/Login**: Users create accounts with name, email, and password. Passwords are securely hashed. A short-lived JWT is stored in an HttpOnly cookie for session persistence.
+   - **Auth Context**: A React context manages global user state and restores the session from the API on app start.
    - **Private Routes**: Protected pages (Dashboard, Reader, Leaderboard) require authentication; unauthenticated users are redirected to login.
 
 2. **Dashboard**:
@@ -78,3 +78,11 @@
 - UI/UX: Relies on Tailwind; could add animations or dark mode.
 
 This app blends technology with spirituality, making ancient texts accessible and engaging through modern web development practices. It's ideal for users seeking daily inspiration from Hindu epics. If you'd like details on specific files, code snippets, or how to run it, let me know!
+
+#### **Vercel deployment**
+- The root `vercel.json` configures two services: `client` (Vite) and `server` (Express). `/api/*` is routed to the server first; all other paths are routed to the client.
+- The browser calls the public same-origin `/api` path, so there is no server-to-server service binding in this project. The backend service is public only through the `/api/*` rewrite.
+- Import this repository as a Vercel project using the repository root. Configure `MONGO_URI`, `JWT_SECRET`, `CLIENT_ORIGIN`, and `COOKIE_SAME_SITE` in Vercel's project environment variables. Set `CLIENT_ORIGIN` to the deployed site's full origin (scheme and host; include preview origins if required). Do not configure `VITE_API_URL` on Vercel; the client defaults to `/api`.
+- Configure `VITE_SITE_URL` to the production site URL and set optional analytics/verification IDs only if those integrations are enabled. Keep database credentials and JWT secrets in server environment variables, never `VITE_*` variables.
+- Install the Vercel CLI and run `vercel dev` from the repository root to exercise local service routing. For separate local development, run the server on port 5000 and the client on port 5173; the Vite dev proxy forwards `/api` requests to the server.
+- `npm run build --prefix client`, `npm test --prefix server`, and both package-level `npm audit` commands are the local validation commands.
